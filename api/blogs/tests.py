@@ -57,11 +57,12 @@ class SubscriptionsTests(APITestCase):
         BlogPost.objects.all().delete()
         Subscription.objects.create(owner=self.users[0], subscriber=self.users[1])
 
-        num_posts = 50
-        for _ in range(num_posts):
+        NUM_POSTS = 50
+        PAGE_SIZE = 10
+        for _ in range(NUM_POSTS):
             self._create_new_blog_post()
         
         self.client.force_authenticate(self.users[1])
         resp = self.client.get('/api/v1/blogs/feed')
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(resp.data), num_posts)
+        self.assertEqual(len(resp.data), PAGE_SIZE)
