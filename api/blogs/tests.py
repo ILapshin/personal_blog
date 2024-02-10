@@ -5,13 +5,22 @@ from django.contrib.auth.models import User
 from rest_framework.test import APITestCase
 
 from blogs.models import BlogPost
+from subscriptions.models import Subscription
 
 
 class SubscriptionsTests(APITestCase):
     def setUp(self):
-        self.user_data = {'username':'Bob', 'password':'somerandompass'}
-        self.user = User.objects.create_user(username=self.user_data['username'], password=self.user_data['password'])
-        self.client.force_authenticate(self.user)
+        self.user_data = [
+            {'username':'Bob', 'password':'somerandompass'},   
+            {'username':'Alice', 'password':'somerandompass'},        
+        ]
+
+        self.users = [
+            User.objects.create_user(username=data['username'], password=data['password']) 
+            for data in self.user_data
+        ]
+
+        self.client.force_authenticate(self.users[0])
 
     def _create_new_blog_post(self):
         data = {
@@ -43,3 +52,16 @@ class SubscriptionsTests(APITestCase):
 
         resp = self.client.post(f'/api/v1/blogs/posts/{post_id}/read')
         self.assertEqual(resp.status_code, status.HTTP_202_ACCEPTED)
+    
+    def test_feed(self):
+        BlogPost.objects.all().delete()
+        Subscription.objects.create(owner=self.users[0], subscriber=self.users[1])
+
+        num_posts = 50
+        for _ in range(num_posts):
+            self._create_new_blog_post()
+        
+        self.client.force_authenticate(self.users[1])
+        resp = self.client.get('/api/v1/blogs/feed')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(resp.data), num_posts)

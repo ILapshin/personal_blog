@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.request import Request
@@ -7,11 +8,7 @@ from rest_framework.generics import get_object_or_404
 from blogs.models import BlogPost
 from blogs.serializers import BlogPostSerializer
 
-
-class FeedView(APIView):
-
-    def get(self, request: Request):
-        return Response({'hello': 'world'})
+from subscriptions.models import Subscription
 
 
 class BlogsPostView(APIView):
@@ -37,3 +34,16 @@ class BlogPostReadView(APIView):
         blog_post.readers.add(request.user)
         blog_post.save()
         return Response(status=status.HTTP_202_ACCEPTED)
+    
+class BlogPostFeedView(APIView):
+    def get(self, request: Request):
+        subscriptions_query = Subscription.objects.filter(subscriber=request.user).values('owner')
+        blog_posts_query = BlogPost.objects.filter(
+            Q(owner__in=subscriptions_query)
+        ).order_by(
+            '-created_at'
+        )[:500]
+
+        serializer = BlogPostSerializer(blog_posts_query, many=True, context={'request': request})
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
