@@ -4,6 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.generics import get_object_or_404
+from rest_framework.pagination import PageNumberPagination
 
 from blogs.models import BlogPost
 from blogs.serializers import BlogPostSerializer
@@ -36,14 +37,22 @@ class BlogPostReadView(APIView):
         return Response(status=status.HTTP_202_ACCEPTED)
     
 class BlogPostFeedView(APIView):
+    
     def get(self, request: Request):
         subscriptions_query = Subscription.objects.filter(subscriber=request.user).values('owner')
-        blog_posts_query = BlogPost.objects.filter(
+        blog_posts_query = BlogPost.objects.prefetch_related(
+            'readers'
+        ).filter(
             Q(owner__in=subscriptions_query)
+        ).exclude(
+            readers=request.user
         ).order_by(
             '-created_at'
         )[:500]
 
-        serializer = BlogPostSerializer(blog_posts_query, many=True, context={'request': request})
+        paginator = PageNumberPagination()
+        paginated_response = paginator.paginate_queryset(blog_posts_query, request)
+
+        serializer = BlogPostSerializer(paginated_response, many=True, context={'request': request})
 
         return Response(serializer.data, status=status.HTTP_200_OK)
