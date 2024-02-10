@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from datetime import timedelta
 
 load_dotenv()
 
@@ -24,6 +25,11 @@ DB_PORT=os.environ.get('DB_PORT')
 DB_USER=os.environ.get('DB_USER')
 DB_PASS=os.environ.get('DB_PASS')
 DB_NAME=os.environ.get('DB_NAME')
+
+
+REDIS_HOST=os.environ.get('REDIS_HOST')
+REDIS_PORT=os.environ.get('REDIS_PORT')
+REDIS_DB=os.environ.get('REDIS_DB')
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -54,10 +60,12 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'debug_toolbar',
-    'scripts',
+    'django_celery_beat',
 
     'blogs',
     'subscriptions',
+    'scripts',
+    'caching',
 ]
 
 MIDDLEWARE = [
@@ -160,3 +168,28 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 INTERNAL_IPS = ['127.0.0.1', '::1']
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}',
+        "KEY_PREFIX": "blog",
+        "TIMEOUT": 60 * 15,  # in seconds: 60 * 15 (15 minutes)
+    }
+}
+
+
+# CELERY_BROKER_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}'
+
+USE_PYTZ_DEFAULT = True
+
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
+CELERY_BEAT_SCHEDULE = {
+    'task-name': {
+        'task': 'path.to.task', 
+        'schedule': timedelta(seconds=10), 
+        # 'args': (arg1, arg2), 
+        # 'kwargs': {'keyword_arg': 'value'}, 
+    },
+}

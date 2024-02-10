@@ -1,4 +1,5 @@
 from django.db.models import Q
+from django.core.cache import cache
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.request import Request
@@ -10,6 +11,7 @@ from blogs.models import BlogPost
 from blogs.serializers import BlogPostSerializer
 
 from subscriptions.models import Subscription
+from caching.caching import get_feed
 
 
 class BlogsPostView(APIView):
@@ -36,22 +38,12 @@ class BlogPostReadView(APIView):
         blog_post.save()
         return Response(status=status.HTTP_202_ACCEPTED)
     
-class BlogPostFeedView(APIView):
-    
+class BlogPostFeedView(APIView):    
     def get(self, request: Request):
-        subscriptions_query = Subscription.objects.filter(subscriber=request.user).values('owner')
-        blog_posts_query = BlogPost.objects.prefetch_related(
-            'readers'
-        ).filter(
-            Q(owner__in=subscriptions_query)
-        ).exclude(
-            readers=request.user
-        ).order_by(
-            '-created_at'
-        )[:500]
+        query = get_feed(request)
 
         paginator = PageNumberPagination()
-        paginated_response = paginator.paginate_queryset(blog_posts_query, request)
+        paginated_response = paginator.paginate_queryset(query, request)
 
         serializer = BlogPostSerializer(paginated_response, many=True, context={'request': request})
 
